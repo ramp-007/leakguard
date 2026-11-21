@@ -1,0 +1,34 @@
+# leakguard-managed: refresh with `leakguard.py init --update`
+name: leakguard
+# Third layer behind the local hooks: scans the whole history for secrets / personal information (generic rules only;
+# your real names live in the git-ignored .leakwords and are checked locally).
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # pull_request would check out GitHub's synthetic merge commit (account e-mail as author); scan the PR head itself
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install gitleaks (version pinned, checksum verified) and scan the whole history
+        env:
+          LEAKGUARD_VISIBILITY: ${{ github.event.repository.visibility }}  # the private profile only applies while this says private/internal
+        run: |
+          python scripts/leakguard.py install
+          python scripts/leakguard.py all
+      - name: Publication audit (only once the repository is public: secrets, personal info, files, identities, license, dependencies)
+        if: github.event.repository.visibility == 'public'
+        run: |
+          python scripts/leakguard.py install-audit-tools
+          python scripts/leakguard.py audit --history

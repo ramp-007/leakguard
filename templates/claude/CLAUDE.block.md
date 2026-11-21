@@ -1,0 +1,11 @@
+## 個人情報を git に入れない（leakguard）
+- **private リポジトリ**（`.leakguard-profile` に `private` と書いてあり、GitHub 上で private と確認できるもの）では、PC名・ホスト名、ローカルIP、Tailscale IP、機器構成を書いてよい。メールアドレス・個人情報・ホームディレクトリのパス・グローバルIP・SSH接続先は必要なときだけ書く（メールとホームパスはフックが止める）。**API キー・トークン・パスワード・秘密鍵は書かない**。
+- **public・不明のリポジトリ**では従来どおり、実名（ホスト名・ユーザー名・実 IP・実メール・ホームディレクトリのパス）を書かない。仮名を使う（`prod-server` / `gpu-pc-1` / `sshuser` / `192.168.1.20` / `100.64.0.10` / `dev@example.com`）。実名は `~/.config/leakguard/words` と各リポジトリの `LOCAL.md`・`.leakwords`（どちらもコミットしない）にだけ置く。
+- private にする手順: `python ~/.config/leakguard/leakguard.py init . --private`。private では `.leakwords` の語は検査されない。常に止めたい語は `always:語` と書く。
+- **push しないリポジトリ**（例: Obsidian の Vault）は `git config leakguard.nopush true` で印を付ける。印のあるリポジトリではハーネスの警告が出ず、`init` も導入しない。実名を書いてよい（秘密は書かない）。印のあるリポジトリからの push は拒否される。印を外すには `git config --unset leakguard.nopush`。
+- git のコミット作者は `Dev <dev@example.com>`。本名のメールでコミットしない。
+- push する可能性があるリポジトリには leakguard のハーネスを入れる。セッション開始時に `[leakguard] ... has no leak-prevention harness` と出たら、スキル `leakguard-init` に従って導入してから作業を進める。
+- `--no-verify` やフックの無効化はしない。ブロックされたら中身を直す。
+- **公開（public）リポジトリへは原則 push しない**。例外は、利用者本人が監査（`audit --history`）のあとに `leakguard.py approve-publish` を実行した場合だけ（1 回・1 時間・そのコミットのみ）。**AI は `approve-publish` を実行しない**（Claude Code ではフックが拒否する。利用者は `! python ~/.config/leakguard/leakguard.py approve-publish` と打つ）。他人のリポジトリ（fork 元・クローンしただけのもの）には push しない。leakguard の pre-push が `gh` で可視性を照会して機械的に拒否する（確認できない場合も拒否）。
+- 利用者が「公開したい」「OSS にしたい」「public にして」「リリースしたい」と言ったら、手順を聞き返さず、スキル `oss-publish-guard` に従って監査から公開準備までを案内する（最後に利用者が打つ 1 行を渡す）。
+- GitHub への初 push の前に `python ~/.config/leakguard/leakguard.py all` で履歴を検査する。リポジトリは既定で private。

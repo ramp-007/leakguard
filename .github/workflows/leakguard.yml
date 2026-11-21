@@ -1,0 +1,25 @@
+# leakguard-managed: refresh with `leakguard.py init --update`
+name: leakguard
+# Third layer behind the local hooks: scans the whole history for secrets / personal information (generic rules only;
+# your real names live in the git-ignored .leakwords and are checked locally).
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install gitleaks (version pinned, checksum verified) and scan the whole history
+        run: |
+          python scripts/leakguard.py install
+          python scripts/leakguard.py all

@@ -1,0 +1,9 @@
+#!/bin/sh
+# leakguard-managed: block personal information / secrets before they are committed. See docs/LEAK_GUARD.md
+ROOT="$(git rev-parse --show-toplevel)"
+for PY in "$ROOT/.venv/Scripts/python.exe" "$ROOT/.venv/bin/python" python3 python; do
+  # use the first interpreter that really runs (a Windows Store stub for python3 does not)
+  if "$PY" -c "import sys" >/dev/null 2>&1; then exec "$PY" "$ROOT/scripts/leakguard.py" staged; fi
+done
+echo "leakguard: Python not found; commit blocked" >&2
+exit 1
