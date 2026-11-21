@@ -11,6 +11,8 @@ A harness that keeps personal information and secrets out of git history — ins
 
 LLM や人の注意に頼らず、コミット・push の時点で機械的に止めるのが目的です。
 
+![leakguard の動作](docs/images/flow-ja.svg)
+
 ## 特徴
 
 - **標準ライブラリのみの Python スクリプト**（本体に依存パッケージなし）

@@ -9,6 +9,8 @@ A harness that keeps personal information and secrets out of git / GitHub — in
 
 It mechanically blocks commits and pushes that contain real names, e-mail addresses, private IPs, or secrets, instead of relying on human or LLM attention.
 
+![How leakguard works](docs/images/flow-en.svg)
+
 ## Features
 
 - **Pure Python standard library** — no dependencies for the tool itself
