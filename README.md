@@ -1,139 +1,138 @@
+English | [日本語](README.ja.md)
 # leakguard
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)
 ![Platform: Windows | macOS | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 
-個人情報・秘密情報を git / GitHub に入れないためのハーネスを、**任意のリポジトリへ 1 コマンドで入れる**ツール。
+A harness that keeps personal information and secrets out of git / GitHub — installed into any repository with one command.
 
-A harness that keeps personal information and secrets out of git history — installed into any repository with one command. It mechanically blocks commits and pushes that contain real names, e-mail addresses, private IPs, or secrets, instead of relying on human or LLM attention.
+It mechanically blocks commits and pushes that contain real names, e-mail addresses, private IPs, or secrets, instead of relying on human or LLM attention.
 
-LLM や人の注意に頼らず、コミット・push の時点で機械的に止めるのが目的です。
+## Features
 
-## 特徴
+- **Pure Python standard library** — no dependencies for the tool itself
+- Secret scanning by [gitleaks](https://github.com/gitleaks/gitleaks), installed at a pinned version with checksum verification
+- **Real-name list**: list your own host names, user names, real IPs and e-mail addresses; a commit is stopped if any of them appears in the diff, a file name, the commit message, or the author identity
+- **Pushes to public repositories are refused by default** (visibility is checked with `gh`; anything not confirmed private is refused). The only exception is the owner's `approve-publish` (clean audit + valid for one push within one hour)
+- **Pre-publication audit (`audit`)**: checks secrets, personal information, unwanted files, committer identities, LICENSE and more, and reports PASS / WARN / BLOCK
+- Idempotent: running any setup command again produces the same result; existing files are never overwritten silently — differences are reported
 
-- **標準ライブラリのみの Python スクリプト**（本体に依存パッケージなし）
-- 秘密検出は [gitleaks](https://github.com/gitleaks/gitleaks)（固定バージョンをチェックサム検証して自動導入）
-- **実名リスト方式**: 自分のホスト名・ユーザー名・実 IP・実メールをリスト化し、差分・ファイル名・コミットメッセージ・作者名のどこに現れても停止
-- **公開リポジトリへの push を原則拒否**（`gh` で可視性を照会し、private と確認できないものも拒否）。公開は本人の `approve-publish`（監査クリーン＋1時間・1回限り）だけが例外
-- **公開前監査 `audit`**: 秘密・個人情報・不要ファイル・コミット者・LICENSE 等を PASS / WARN / BLOCK で判定
-- 何度実行しても同じ結果（冪等）。既存ファイルは上書きせず、差分を知らせる
+## Requirements
 
-## 対応環境
-
-| 項目 | 要件 |
+| Item | Requirement |
 |---|---|
-| OS | Windows 10 / 11、macOS、Linux（いずれも x64 / ARM64） |
-| Python | 3.9 以上（標準ライブラリのみ） |
-| Git | 必須 |
-| gitleaks | 初回セットアップ時に固定版 v8.30.1 をチェックサム検証して自動導入（PATH にある場合はそれも可） |
-| GitHub CLI (`gh`) | 任意。push 先の可視性照会などに使う。無い場合、GitHub への push は「確認できない」として拒否される |
+| OS | Windows 10 / 11, macOS, or Linux (x64 or ARM64) |
+| Python | 3.9 or later (standard library only) |
+| Git | Required |
+| gitleaks | Installed automatically at pinned v8.30.1 with checksum verification on first setup (a `gitleaks` already on PATH is also used) |
+| GitHub CLI (`gh`) | Optional. Used to check push-target visibility and for `pull-words`. Without it, pushes to GitHub are refused as "cannot be confirmed" |
 
-## インストール
+## Installation
 
 ```sh
 git clone https://github.com/ramp-007/leakguard.git
 cd leakguard
-python leakguard.py setup-global   # この PC に1回だけ: 中央コピー配置＋gitleaks導入＋git テンプレート設定
-python leakguard.py setup-claude   # 任意: Claude Code 連携（スキル・規則・SessionStart フック）
+python leakguard.py setup-global   # once per machine: central copy + gitleaks + git template
+python leakguard.py setup-claude   # optional: Claude Code integration (skill, rules, SessionStart hook)
 ```
 
-Windows では `python` の代わりに `py -3` でも動きます。
+On Windows, `py -3` works in place of `python`.
 
-## クイックスタート
+## Quick start
 
 ```sh
-python leakguard.py init <repo>    # 既存リポジトリにハーネス一式を入れる
-python leakguard.py survey <dir>   # ディレクトリ配下のリポジトリの導入状況を一覧する
+python leakguard.py init <repo>    # install the harness into an existing repository
+python leakguard.py survey <dir>   # list the repositories under a directory and their setup status
 ```
 
-`init` が行うこと:
+What `init` generates:
 
-| 生成物 | 役割 |
+| File | Role |
 |---|---|
-| `scripts/leakguard.py` ほか | エンジン本体のコピー（そのリポジトリだけで完結。CI も外部に依存しない） |
-| `.gitleaks.toml` | gitleaks の既定ルール + メール・私設/Tailscale IP・ホームディレクトリ・`*.ts.net`・`DESKTOP-xxxx`・MAC・SSH 公開鍵 |
-| `.githooks/pre-commit` `commit-msg` `pre-push` | コミット前・メッセージ・push 前の検査（`core.hooksPath` を設定） |
-| `.github/workflows/leakguard.yml` | GitHub 上で履歴全体を検査（最後の防壁） |
-| `docs/LEAK_GUARD.md` | そのリポジトリ向けの使い方 |
-| `.gitignore` / `.gitattributes` | `.leakwords`、`.tools/` を無視、フックを LF に固定 |
-| git の `user.email` | 本名のメールが設定されていれば、**そのリポジトリだけ** 仮名に |
+| `scripts/leakguard.py` etc. | A copy of the engine (self-contained per repository; CI does not depend on anything external) |
+| `.gitleaks.toml` | gitleaks default rules plus e-mail, private/Tailscale IPs, home directories, `*.ts.net`, `DESKTOP-xxxx`, MAC addresses, SSH public keys |
+| `.githooks/pre-commit` `commit-msg` `pre-push` | Checks before commit, on the message, and before push (sets `core.hooksPath`) |
+| `.github/workflows/leakguard.yml` | Checks the whole history on GitHub (the last line of defense) |
+| `docs/LEAK_GUARD.md` | Usage notes for that repository (currently Japanese) |
+| `.gitignore` / `.gitattributes` | Ignores `.leakwords` and `.tools/`; pins hooks to LF |
+| git `user.email` | If set to a real-name address, replaced with a placeholder **for that repository only** |
 
-## 検査の中身
+## What is checked
 
-詳しくは [docs/LEAK_GUARD.md](docs/LEAK_GUARD.md)。要点:
+See [docs/LEAK_GUARD.md](docs/LEAK_GUARD.md) (Japanese) for details. In short:
 
-1. **gitleaks**（既定ルール + 自作ルール。プレースホルダは allowlist）
-2. **実名リスト**（下記）
-3. **コミット作者・コミッターのメール**は `@example.com` か GitHub noreply のみ（gitleaks は作者・メッセージを見ないので自前で検査）
-4. **push 先の可視性**（公開リポジトリへの push は原則拒否）
+1. **gitleaks** (default rules + custom rules; placeholders are allow-listed)
+2. **Your real-name list** (below)
+3. **Commit author / committer e-mail** must be an `@example.com` placeholder or a GitHub noreply address (gitleaks does not inspect identities or messages, so leakguard checks them itself)
+4. **Push-target visibility** (pushes to public repositories are refused by default)
 
-### プロファイル
+### Profiles
 
-- `strict`（既定）: 上記すべてを適用。実名・私設 IP・ホスト名を拒否
-- `private`: `init --private` で指定し、かつ GitHub remote がすべて private/internal と確認できた場合のみ有効。私設/Tailscale IP とホスト名を許可する（秘密・メール・ホームパスは引き続き拒否）。確認できなければ strict に戻る
+- `strict` (default): everything above; real names, private IPs and host names are refused
+- `private`: enabled with `init --private`, and only takes effect when every GitHub remote is confirmed private/internal. Allows private/Tailscale IPs and host names (secrets, e-mail addresses and home paths are still refused). Falls back to strict whenever anything cannot be confirmed
 
-### 実名リスト（コミットしない）
+### Real-name list (never committed)
 
-自分の実名（ホスト名・ユーザー名・実 IP・実メール）を 1 行 1 語で書きます。
+Write your real names (host names, user names, real IPs, e-mail addresses), one per line:
 
-- `~/.config/leakguard/words` — **全リポジトリ共通**
-- `<repo>/.leakwords` — そのリポジトリだけ（`init` が gitignore する）
+- `~/.config/leakguard/words` — shared by all repositories
+- `<repo>/.leakwords` — per repository (`init` adds it to .gitignore)
 
-このファイル自体は決してコミットされません。
+These files themselves are never committed.
 
-## 主なコマンド
+## Commands
 
-`python leakguard.py` で一覧が出ます。
+Run `python leakguard.py` for the full list.
 
-| コマンド | 用途 |
+| Command | Purpose |
 |---|---|
-| `setup-global` | この PC への導入（新しい `git init` / `git clone` に自動でフックが入る） |
-| `setup-claude` / `setup-agents` | Claude Code / Codex 等のエージェント連携 |
-| `init [path]` | リポジトリへハーネスを導入（`--update` で生成物だけ更新、`--private` で private プロファイル） |
-| `survey [dir]` | 配下リポジトリの導入状況を一覧 |
-| `audit [--history] [--json]` | 公開前監査（PASS / WARN / BLOCK） |
-| `approve-publish` | 本人専用: 監査クリーンな HEAD の公開 push を1回だけ許可 |
-| `pull-words <host>` | 実名リストを ssh 経由で別 PC から取り込む（GitHub は経由しない） |
-| `selftest` | この PC の新規リポジトリが保護されるか検証 |
-| `session-check` | エージェント起動時フック用: ハーネスが無いリポジトリで警告 |
+| `setup-global` | Install on this machine (new `git init` / `git clone` repositories get the hooks automatically) |
+| `setup-claude` / `setup-agents` | Integration for Claude Code / Codex and other agents |
+| `init [path]` | Install the harness into a repository (`--update` refreshes generated files; `--private` selects the private profile) |
+| `survey [dir]` | List setup status of repositories below a directory |
+| `audit [--history] [--json]` | Pre-publication audit (PASS / WARN / BLOCK) |
+| `approve-publish` | Owner only: allow one public push of the current HEAD after a clean audit |
+| `pull-words <host>` | Fetch the real-name list from another machine over ssh (never via GitHub) |
+| `selftest` | Verify that a brand-new repository on this machine is protected |
+| `session-check` | For agent start-up hooks: warn when the current repository has no harness |
 
-## 別の PC に入れる
+## Installing on another machine
 
-ツール本体・ルール・フック・CI のひな形はこのリポジトリから clone して入ります。
-**実名リストだけは GitHub を通しません**（`pull-words` で ssh 経由、または手でコピー）。
+The tool, rules, hooks and CI template are installed by cloning this repository.
+**The real-name list never travels through GitHub** (use `pull-words` over ssh, or copy it by hand).
 
 ```sh
 gh auth login
 git clone https://github.com/ramp-007/leakguard.git ~/leakguard
 python ~/leakguard/leakguard.py setup-global
-python ~/leakguard/leakguard.py setup-claude        # 任意
-python ~/.config/leakguard/leakguard.py pull-words <実名リストのある PC の ssh ホスト>
+python ~/leakguard/leakguard.py setup-claude        # optional
+python ~/.config/leakguard/leakguard.py pull-words <ssh host that has your word list>
 python ~/.config/leakguard/leakguard.py survey ~
 ```
 
-ツールを更新したら、各 PC で `git pull` → `setup-global` → `setup-claude`、リポジトリ側は `init --update`。
+To update: on each machine, `git pull` → `setup-global` → `setup-claude`; in each repository, `init --update`.
 
-## AI エージェントとの連携
+## AI agent integration
 
-- `session-check` を SessionStart フックに登録すると、ハーネスが無いリポジトリでセッションを始めたときに警告が文脈に入ります
-- スキル `leakguard-init` が導入手順をそのまま実行します
-- スキル `oss-publish-guard` と PreToolUse フックが、公開操作（`gh repo edit --visibility public` 等）の前に `audit --history` を走らせ、BLOCK なら拒否します
+- Registering `session-check` as a SessionStart hook warns, in context, when a session starts in a repository without the harness
+- The `leakguard-init` skill runs the installation procedure as-is
+- The `oss-publish-guard` skill and a PreToolUse hook run `audit --history` before publication actions (such as `gh repo edit --visibility public`) and refuse them on BLOCK
 
-## テスト
+## Tests
 
 ```sh
 pytest tests/
 ```
 
-実際の git・フック・gitleaks を使い、使い捨てのリポジトリで検知・ブロック・`init` の冪等性・`setup-global`・`survey` を検証します。マシン全体の設定は環境変数（`LEAKGUARD_HOME`、`GIT_CONFIG_GLOBAL`）で分離しています。
+The tests use real git, hooks and gitleaks against throwaway repositories, and verify detection, blocking, `init` idempotency, `setup-global` and `survey`. Machine-wide state is isolated with environment variables (`LEAKGUARD_HOME`, `GIT_CONFIG_GLOBAL`).
 
-## セキュリティ
+## Security
 
-脆弱性や検出漏れを見つけたら、内容を公開 Issue に書かず、[SECURITY.md](SECURITY.md) の手順で報告してください。
+If you find a vulnerability or a detection bypass, please do not open a public issue — follow [SECURITY.md](SECURITY.md) instead.
 
-## ライセンス
+## License
 
 [MIT License](LICENSE)
 
-秘密検出エンジンとして [gitleaks](https://github.com/gitleaks/gitleaks)（MIT）を利用しています。leakguard 本体は gitleaks を同梱せず、初回セットアップ時に公式リリースからチェックサム検証のうえ取得します。
+leakguard uses [gitleaks](https://github.com/gitleaks/gitleaks) (MIT) as its secret-scanning engine. gitleaks is not bundled; it is downloaded from its official release with checksum verification during first setup.
