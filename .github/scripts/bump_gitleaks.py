@@ -6,7 +6,7 @@ Policy:
 - A release becomes eligible only DELAY_DAYS (default 7) after it was
   published, so a compromised or broken release has time to be caught
   by the community before it is proposed here.
-- This script only edits files. The caller runs the test suite with
+- This script only edits files. The workflow runs the test suite with
   the new binary and opens a pull request; nothing is merged or
   installed automatically.
 

@@ -1,0 +1,61 @@
+name: bump-gitleaks
+
+# Delayed auto-update for the pinned gitleaks version.
+# A release is proposed only 7 days after publication (supply-chain
+# cooldown), the test suite must pass with the new binary, and the
+# change always goes through a pull request -- never a direct push.
+
+on:
+  schedule:
+    - cron: "0 3 * * 1" # Mondays 03:00 UTC (12:00 JST)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check for an eligible newer gitleaks
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python .github/scripts/bump_gitleaks.py | tee /tmp/bump.out
+          if grep -q "^BUMP" /tmp/bump.out; then
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+            echo "version=$(sed -n 's/^BUMP .* -> //p' /tmp/bump.out)" >> "$GITHUB_OUTPUT"
+          else
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install the new gitleaks and run tests
+        if: steps.bump.outputs.bumped == 'true'
+        run: |
+          python leakguard.py setup-global
+          pip install pytest
+          PATH="$HOME/.config/leakguard/bin:$PATH" python -m pytest tests/ -q
+
+      - name: Open a pull request
+        if: steps.bump.outputs.bumped == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branch="bump-gitleaks-${{ steps.bump.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add -A
+          git commit -m "chore: gitleaks を ${{ steps.bump.outputs.version }} に上げる（公開7日経過・テスト通過）"
+          git push origin "$branch"
+          gh pr create --title "gitleaks ${{ steps.bump.outputs.version }} に更新" \
+            --body "公開から7日経過した gitleaks **${{ steps.bump.outputs.version }}** への追随。新バイナリでのテスト通過を確認済み。チェックサム検証は従来どおり setup 時に行われる。" \
+            --base main --head "$branch"
